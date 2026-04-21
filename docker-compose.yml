@@ -14,6 +14,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    # Docker checks if PostgreSQL is ready to accept connections
+    # pg_isready is a built-in PostgreSQL utility
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taxi_user -d taxi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   user-service:
     build: ./backend/user-service
@@ -21,7 +28,16 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres-db
+      postgres-db:
+        condition: service_healthy
+    # Docker calls /health endpoint every 30 seconds
+    # If it fails 3 times in a row, container is marked unhealthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
 volumes:
   postgres_data:
